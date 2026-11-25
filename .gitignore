@@ -1,0 +1,24 @@
+config.json
+db.sqlite3
+ask.db
+docs/node_modules/
+docs/.next/
+docs/.source/
+docs/out/
+docs/next-env.d.ts
+docs/*.tsbuildinfo
+
+# Root tooling and Playwright artifacts
+/node_modules/
+/playwright-report/
+/test-results/
+/dist/
+/.wrangler/
+.dev.vars*
+!.dev.vars.example
+/.local/
+/.npm-cache/
+**/.wrangler/
+frontend/dist/
+frontend/.vinext/
+*.tsbuildinfo

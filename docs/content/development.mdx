@@ -1,0 +1,27 @@
+---
+title: "本地开发"
+---
+
+安装 Node.js 24 后，在仓库根目录按 `.dev.vars.example` 准备 `.dev.vars`，为两个长期密钥各填写一个本地专用随机值（至少 32 字节），再运行以下命令。
+
+```sh
+npm ci
+npm run dev
+```
+
+`npm ci` 一次安装 Worker、前台、管理后台和文档所需的依赖。`npm run dev` 构建站点、初始化本地 D1 并启动 Wrangler。修改页面或服务端代码后，重新启动即可测试最新构建。
+
+要单独构建完整站点，在仓库根目录执行 `npm run build`。Worker 服务端代码输出到 `dist/server/`，三个站点共用 `dist/client/` 静态资源目录。管理后台的 CSS 编辑器从同源的 `/admin/monaco/vs/` 加载。
+
+## 验证更改
+
+```sh
+npm run test:content-markup
+npm run test:worker
+npm run build
+npm --prefix docs test
+npx playwright install chromium
+npm run test:e2e
+```
+
+Playwright 使用专用临时 D1、R2 与会话密钥，从同一站点访问 `/`、`/admin/` 与 `/api/`。浏览器报告保存在 `playwright-report/` 中。

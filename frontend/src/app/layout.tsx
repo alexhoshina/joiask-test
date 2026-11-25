@@ -1,0 +1,46 @@
+import type { Metadata } from "next";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
+import "./globals.css";
+import { Navbar } from "@/components/navbar";
+import { AccountAuthProvider } from "@/lib/account-auth";
+import { getSiteConfig } from "@/lib/site-config";
+import { EmojiCatalogProvider } from "@/lib/emoji-catalog";
+
+
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await getSiteConfig();
+  return {
+    title: config.site_name,
+    description: config.site_description,
+    icons: {
+      icon: config.favicon_url,
+    },
+  };
+}
+
+export default async function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const config = await getSiteConfig();
+
+  return (
+    <html lang="zh-CN" style={{ scrollbarGutter: 'stable' }}>
+      <body
+        className="antialiased fabric-linen"
+      >
+        <AccountAuthProvider emailEnabled={config.email_enabled}>
+          <EmojiCatalogProvider>
+            <Navbar logoUrl={config.logo_url} />
+            {children}
+            <style id="custom-site-css">{config.custom_css}</style>
+          </EmojiCatalogProvider>
+        </AccountAuthProvider>
+      </body>
+    </html>
+  );
+}

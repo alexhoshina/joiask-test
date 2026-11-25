@@ -1,0 +1,444 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { PostCard } from '@/components/post-card';
+import { FileUpload } from '@/components/file-upload';
+import { InputEmojiPicker } from '@/components/input-emoji-picker';
+import { GoToTop } from '@/components/go-to-top';
+import { getQuestions, getTags, getConfig, getInfo, createQuestion, Tag, Question } from '@/lib/api';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { useAccountAuth } from '@/lib/account-auth';
+import { CircleHelp } from 'lucide-react';
+
+export default function HomePage() {
+	const { user: accountUser, openAccountDialog } = useAccountAuth();
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string>('');
+  const [content, setContent] = useState('');
+  const [isRainbow, setIsRainbow] = useState(false);
+  const [isRealName, setIsRealName] = useState(false);
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const [requireVerifiedUserToPost, setRequireVerifiedUserToPost] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Questions state
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hideArchive, setHideArchive] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+  const { emojiUpdates, archiveUpdates, handleCardCursor, handleCardCursorLeave, getRemoteCursors } = useWebSocket();
+
+  useEffect(() => {
+    if (!accountUser) setIsRealName(false);
+  }, [accountUser]);
+
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load initial data
+  useEffect(() => {
+    const savedContent = localStorage.getItem('ask_content');
+    if (savedContent) setContent(savedContent);
+
+    getTags().then((res) => {
+      if (res.code === 200 && res.data) {
+        const sorted = [res.data[0], ...res.data.slice(1).reverse()];
+        setTags(sorted);
+      }
+    });
+
+    getConfig().then((res) => {
+      if (res.code === 200) {
+        setAnnouncement(res.data.announcement || '');
+        setRequireVerifiedUserToPost(!!res.data.require_verified_user_to_post);
+      }
+    });
+
+    getInfo().then((res) => {
+      setIsLoggedIn(res.code === 200);
+    });
+  }, []);
+
+  // Load questions
+  const loadQuestions = useCallback(async (reset = false) => {
+    if (isLoading) return;
+    setIsLoading(true);
+
+    const currentPage = reset ? 1 : page;
+    try {
+      const res = await getQuestions({
+        page: currentPage,
+        size: 5,
+        publish: true,
+        order_by: 'id',
+        order: sortOrder,
+        archive: hideArchive ? false : undefined,
+      });
+
+      if (res.code === 200) {
+        const newQuestions = res.data.questions || [];
+        if (reset) {
+          setQuestions(newQuestions);
+        } else {
+          setQuestions((prev) => [...prev, ...newQuestions]);
+        }
+        setHasMore(newQuestions.length >= 5);
+        setPage(currentPage + 1);
+      }
+    } catch (error) {
+      console.error('Failed to load questions:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [page, sortOrder, hideArchive, isLoading]);
+
+  // Initial load
+  useEffect(() => {
+    loadQuestions(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortOrder, hideArchive]);
+
+  // Infinite scroll
+  useEffect(() => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading) {
+          loadQuestions();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observerRef.current.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [hasMore, isLoading, loadQuestions]);
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+    localStorage.setItem('ask_content', e.target.value);
+  };
+
+  const replaceSelection = (replacement: string) => {
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? content.length;
+    const end = textarea?.selectionEnd ?? content.length;
+    const newContent = content.slice(0, start) + replacement + content.slice(end);
+
+    if (newContent.length > 800) {
+      alert('添加表情后内容不能超过 800 字');
+      return;
+    }
+
+    setContent(newContent);
+    localStorage.setItem('ask_content', newContent);
+
+    setTimeout(() => {
+      if (!textarea) return;
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + replacement.length,
+        start + replacement.length
+      );
+    }, 0);
+  };
+
+  const handleEmojiInsert = (tag: string) => {
+    replaceSelection(tag);
+  };
+
+  const handleSubmit = async () => {
+    if (requireVerifiedUserToPost && !accountUser) {
+      openAccountDialog('login');
+      return;
+    }
+    const trimmedContent = content.trim().replace(/｛/g, '{').replace(/｝/g, '}');
+    if (!trimmedContent) {
+      alert('请输入有效的提问内容');
+      return;
+    }
+    if (!selectedTag) {
+      alert('请选择话题');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const formData = new FormData();
+    formData.append('tag_id', selectedTag);
+    formData.append('content', trimmedContent);
+    if (isRainbow) formData.append('rainbow', 'true');
+    if (isRealName) formData.append('real_name', 'true');
+    files.forEach((file) => formData.append('files[]', file));
+
+    try {
+      const res = await createQuestion(formData);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.code === 200) {
+          setSubmitSuccess(true);
+          setContent('');
+          localStorage.setItem('ask_content', '');
+          setSelectedTag('');
+          setIsRainbow(false);
+          setIsRealName(false);
+          setShowImageUpload(false);
+          setFiles([]);
+          setTimeout(() => setSubmitSuccess(false), 4000);
+        } else {
+          alert(data.message);
+        }
+      } else if (res.status === 413) {
+        alert('图片太大，请缩小图片体积或者分开投稿');
+      } else {
+        alert('投稿出现错误');
+      }
+    } catch (error) {
+      console.error('Submit error:', error);
+      alert('投稿失败');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Preview card data
+  const previewCard: Question | null = content && selectedTag ? {
+    id: 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    tag_id: parseInt(selectedTag),
+    tag: tags.find((t) => t.id === parseInt(selectedTag)) || { id: 0, tag_name: '', description: '', question_count: 0, created_at: '', updated_at: '' },
+    content: '[卡片预览]\n' + content,
+    images: files.map((f) => URL.createObjectURL(f)).join(';'),
+    images_num: files.length,
+    is_hide: false,
+    is_rainbow: isRainbow,
+    is_real_name: isRealName,
+    bilibili_uid: isRealName ? accountUser?.bilibili_uid : undefined,
+    bilibili_name: isRealName ? accountUser?.bilibili_name : undefined,
+    bilibili_avatar: isRealName ? accountUser?.bilibili_avatar : undefined,
+    is_archive: false,
+    is_publish: false,
+    is_spam: false,
+    emojis: '[]',
+    likes: 0,
+  } : null;
+
+  return (
+    <div className="flex flex-col w-full items-center">
+      {/* Submit Form */}
+      <div className="ask max-w-[600px] w-5/6 relative my-8 p-5 flex flex-col rounded-md fabric-form transition-all duration-220">
+        {/* Tag Select */}
+        <div className="mb-2.5">
+          <div className="flex items-center justify-between">
+            <Select value={selectedTag} onValueChange={setSelectedTag}>
+              <SelectTrigger className="w-[140px] fabric-pill border-none text-primary text-xs">
+                <SelectValue placeholder="选择话题" />
+              </SelectTrigger>
+              <SelectContent>
+                {tags.map((tag) => (
+                  <SelectItem key={tag.id} value={tag.id.toString()}>
+                    #{tag.tag_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="group relative z-10">
+              <button
+                type="button"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                aria-label="查看投稿格式标签说明"
+                aria-describedby="content-tag-help"
+              >
+                <CircleHelp className="h-4 w-4" />
+              </button>
+              <div
+                id="content-tag-help"
+                role="tooltip"
+                className="pointer-events-none invisible absolute right-0 top-full mt-2 w-72 rounded-lg border-2 border-dashed border-[var(--color-fabric-stitch)] bg-card p-3 text-left text-xs leading-5 text-foreground opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+              >
+                <p className="mb-1 font-semibold text-primary">投稿格式标签</p>
+                <p><code>[hide]内容[/hide]</code> 隐藏内容</p>
+                <p><code>[bold]内容[/bold]</code> 加粗文字</p>
+                <p><code>[big=1]内容[/big]</code> 逐字放大缩小</p>
+                <p><code>[shake=1]内容[/shake]</code> 逐字晃动</p>
+                <p className="mt-1 text-muted-foreground">
+                  动态效果强度为 0.1～3；支持嵌套，也兼容 {'{{内容}}'}。
+                </p>
+              </div>
+            </div>
+          </div>
+          {selectedTag && (
+            <pre className="text-primary text-sm mt-2 whitespace-pre-wrap">
+              {tags.find((t) => t.id === parseInt(selectedTag))?.description}
+            </pre>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className={`relative ${isRainbow ? 'rainbow-bg' : ''}`}>
+          <textarea
+            ref={textareaRef}
+            className={`w-full min-h-[128px] p-4 text-foreground bg-secondary/50 border-2 border-dashed border-[var(--color-fabric-stitch)] rounded-lg resize-none focus:bg-card focus:border-primary focus:outline-none transition-all duration-220 ${
+              isRainbow ? 'rainbow-bg' : ''
+            }`}
+            style={{ fontFamily: '宋体, Fangsong, STFangsong, sans-serif' }}
+            maxLength={800}
+            value={content}
+            onChange={handleContentChange}
+            placeholder="输入你的提问..."
+          />
+          <div className="absolute bottom-4 right-4">
+            <InputEmojiPicker onSelect={handleEmojiInsert} />
+          </div>
+        </div>
+
+        {/* Options */}
+        <div className="flex justify-between my-4 text-sm">
+          <div className="text-primary whitespace-pre-wrap">{announcement}</div>
+          <div className="flex flex-col items-start gap-1.5 text-primary">
+            <Label className="flex cursor-pointer items-center gap-2 leading-6">
+              <Checkbox
+                checked={isRainbow}
+                onCheckedChange={(checked) => setIsRainbow(!!checked)}
+              />
+              彩虹屁
+            </Label>
+            <Label className="flex cursor-pointer items-center gap-2 leading-6">
+              <Checkbox
+                checked={showImageUpload}
+                onCheckedChange={(checked) => setShowImageUpload(!!checked)}
+              />
+              附图
+            </Label>
+            <Label className={`flex items-center gap-2 leading-6 ${accountUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <Checkbox
+                checked={isRealName}
+                onCheckedChange={(checked) => setIsRealName(!!checked)}
+                disabled={!accountUser}
+              />
+              {accountUser ? '实名投稿' : '实名投稿（需登录）'}
+            </Label>
+          </div>
+        </div>
+
+        {/* File Upload */}
+        {showImageUpload && (
+          <div className="mb-4">
+            <FileUpload files={files} onFilesChange={setFiles} maxFiles={6} />
+          </div>
+        )}
+
+        {/* Submit Button */}
+        <Button
+          onClick={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? '上传中，请稍等' : requireVerifiedUserToPost && !accountUser ? '登录后提交' : '提交'}
+        </Button>
+
+        {/* Success Message */}
+        {submitSuccess && (
+          <div className="absolute inset-0 flex bg-card text-foreground text-center items-center justify-center z-10 rounded-md border-2 border-dashed border-[var(--color-fabric-stitch)]">
+            提问已提交审核，内容将会在审核通过后放出
+          </div>
+        )}
+      </div>
+
+      {/* Preview Card */}
+      {previewCard && <PostCard data={previewCard} isLoggedIn={false} />}
+
+      {/* Filters */}
+      <div className="max-w-[600px] w-5/6 flex justify-between items-center mb-4 p-3 rounded-md bg-card border-2 border-dashed border-[var(--color-fabric-stitch)]">
+        <Label className="flex items-center cursor-pointer text-primary">
+          <Checkbox
+            checked={hideArchive}
+            onCheckedChange={(checked) => {
+              setHideArchive(!!checked);
+              setPage(1);
+              setQuestions([]);
+            }}
+            className="mr-2"
+          />
+          隐藏归档卡片
+        </Label>
+        <Select
+          value={sortOrder}
+          onValueChange={(v) => {
+            setSortOrder(v as 'desc' | 'asc');
+            setPage(1);
+            setQuestions([]);
+          }}
+        >
+          <SelectTrigger className="w-[120px] fabric-card border-2 border-dashed border-[var(--color-fabric-stitch)]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">从新到旧</SelectItem>
+            <SelectItem value="asc">从旧到新</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Questions List */}
+      {questions.map((question) => (
+        <PostCard
+          key={question.id}
+          data={question}
+          isLoggedIn={isLoggedIn}
+          emojiUpdates={emojiUpdates}
+          archiveUpdates={archiveUpdates}
+          remoteCursors={getRemoteCursors(question.id)}
+          onCursorMove={(x, y) => handleCardCursor(question.id, x, y)}
+          onCursorLeave={() => handleCardCursorLeave(question.id)}
+        />
+      ))}
+
+      {/* Load More */}
+      <div ref={loadMoreRef} className="py-4 text-primary text-center">
+        {isLoading ? '加载中...' : hasMore ? '' : '已经到底啦( ´･･)ﾉ(._.`)'}
+      </div>
+
+      <style jsx>{`
+        .rainbow-bg {
+          background: linear-gradient(
+            130deg,
+            rgba(220, 93, 231, 0.33) 0%,
+            rgba(127, 239, 189, 0.33) 33%,
+            rgba(255, 245, 137, 0.33) 66%,
+            rgba(236, 11, 67, 0.33) 100%
+          );
+        }
+      `}</style>
+
+      <GoToTop />
+    </div>
+  );
+}

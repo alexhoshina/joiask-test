@@ -1,0 +1,21 @@
+---
+title: "故障排查"
+---
+
+## 首页或 API 返回服务错误
+
+先检查 Workers 日志，确认 Worker 使用的 D1 数据库已应用仓库中的迁移，`DB`、`FILES`、`REALTIME` 和 `MODERATION` 绑定指向预期资源。检查 `SESSION_SECRET`、`SETTINGS_KEY` 是否配置在同一环境。
+
+## 管理后台不能登录
+
+新站首次登录 `/admin/` 时，请使用 Cloudflare 部署表单里填写的管理员用户名和密码。若部署时漏填或填错，可在当前 Worker 的 **Settings → Variables and Secrets** 中设置 `JOIASK_INITIAL_ADMIN_USERNAME`（**Text** 或 **Secret**）和 `JOIASK_INITIAL_ADMIN_PASSWORD`（**Secret**），点击 **Deploy** 后重试。已有账号忘记密码时用运维 CLI 的 `reset-password`，需要重建已删除的管理员账号时用 `create`。请确认 CLI 连接的是当前站点的 D1。[管理员 CLI](./administrators.mdx)
+
+## 注册无法验证签名
+
+核对 UID，把界面提供的验证码完整复制到该 UID 的公开 B 站个性签名，保存后点击「我已修改签名，立即验证」。提示签名不一致时，检查签名首尾是否有空格，并给公开资料留出更新时间。
+
+超级管理员可在后台「设置」中用「测试连接」查询自己的 UID。查看 Workers 日志中 `/api/account/verification/check` 的出站请求，确认目标路径和 `mid` 参数正确。HTTP 412 或 429 表示资料服务限制了该请求。若测试能读到昵称但签名一直是旧值，检查反代是否缓存了名片响应。用户可在验证码有效期内重试，过期后再领取新码。接口地址及返回格式见[配置说明](./configuration.mdx)。
+
+## 图片或邮件异常
+
+检查 R2 绑定、对象键与上传类型。旧文件的响应策略见[上传文件](./upload-serving-security.mdx)。发信时检查 SMTP 主机、端口、TLS/STARTTLS、发件人授权，以及邮件链接使用的公开 HTTPS 地址。更换服务主机后需要重新录入凭据。

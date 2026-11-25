@@ -1,0 +1,58 @@
+{
+  "name": "joiask-test",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "JoiAsk Question Box",
+  "cloudflare": {
+    "bindings": {
+      "SESSION_SECRET": {
+        "description": "用于签发登录会话。请生成至少 32 字节的独立随机值，后续部署继续使用。"
+      },
+      "SETTINGS_KEY": {
+        "description": "用于加密站点设置。请单独生成至少 32 字节的随机值，后续部署继续使用。"
+      },
+      "JOIASK_INITIAL_ADMIN_USERNAME": {
+        "description": "为新站的首个超级管理员选择用户名。部署后用它登录 `/admin/`。"
+      },
+      "JOIASK_INITIAL_ADMIN_PASSWORD": {
+        "description": "为该管理员设置登录密码。首次登录成功后即可移除这两项管理员凭据。"
+      }
+    }
+  },
+  "scripts": {
+    "predev": "npm run build && npm run db:migrate:local",
+    "dev": "wrangler dev --local --config dist/server/wrangler.json --env-file .dev.vars --persist-to .wrangler/state",
+    "build": "npm --prefix admin run build && npm --prefix docs run build && npm --prefix frontend run build",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.jsonc",
+    "db:migrate": "wrangler d1 migrations apply DB --remote --config wrangler.jsonc",
+    "deploy": "wrangler deploy --config dist/server/wrangler.json",
+    "check:deploy": "wrangler deploy --dry-run --config dist/server/wrangler.json",
+    "release": "npm run build && npm run db:migrate && npm run deploy --",
+    "admin": "node cli/admin.ts",
+    "typecheck:worker": "tsc -p worker/tsconfig.json",
+    "test:worker": "node --test tests/worker/*.test.*",
+    "test:content-markup": "node --test shared/content-markup.test.mts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:typecheck": "tsc --project tests/e2e/tsconfig.json",
+    "postinstall": "npm --prefix frontend ci --include=dev --no-fund --no-audit && npm --prefix admin ci --include=dev --no-fund --no-audit && npm --prefix docs ci --include=dev --no-fund --no-audit",
+    "test": "npm run test:content-markup && npm run test:worker"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261124.1",
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^22.20.5",
+    "@types/nodemailer": "^8.0.2",
+    "esbuild": "^0.28.2",
+    "miniflare": "^5.20261123.0-beta",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.167.0"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@remix-run/multipart-parser": "^1.1.2",
+    "nodemailer": "^10.6.1"
+  }
+}

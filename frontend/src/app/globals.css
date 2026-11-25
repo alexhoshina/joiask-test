@@ -1,0 +1,49 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--page-background-color);
+  --color-foreground: var(--color-page-foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-ring: var(--color-focus-ring);
+  --color-input: var(--color-input-border);
+  --color-border: var(--color-control-border);
+  --color-destructive: var(--color-danger);
+  --color-accent-foreground: var(--color-control-hover-foreground);
+  --color-accent: var(--color-control-hover);
+  --color-muted-foreground: var(--color-text-muted);
+  --color-muted: var(--color-surface-muted);
+  --color-secondary-foreground: var(--color-control-secondary-foreground);
+  --color-secondary: var(--color-control-secondary);
+  --color-primary-foreground: var(--color-brand-foreground);
+  --color-primary: var(--color-brand);
+  --color-popover-foreground: var(--color-overlay-foreground);
+  --color-popover: var(--color-overlay);
+  --color-card-foreground: var(--color-surface-foreground);
+  --color-card: var(--color-surface);
+  --radius-sm: calc(var(--radius-base) - 4px);
+  --radius-md: calc(var(--radius-base) - 2px);
+  --radius-lg: var(--radius-base);
+  --radius-xl: calc(var(--radius-base) + 4px);
+  --radius-2xl: calc(var(--radius-base) + 8px);
+  --radius-3xl: calc(var(--radius-base) + 12px);
+  --radius-4xl: calc(var(--radius-base) + 16px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+:root {
+  --font-geist-sans: "Geist Variable", sans-serif;
+  --font-geist-mono: "Geist Mono Variable", monospace;
+}

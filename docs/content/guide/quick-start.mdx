@@ -1,0 +1,40 @@
+---
+title: "快速开始"
+---
+
+**新安装没有默认管理员或默认密码。** 首次体验可以使用本地的 Cloudflare 运行时。
+
+## 1. 安装并启动
+
+使用 Node.js 24。在仓库根目录按 `.dev.vars.example` 创建 `.dev.vars`，填入两个本地专用随机值 `SESSION_SECRET` 和 `SETTINGS_KEY`，每个至少 32 字节。然后运行：
+
+```sh
+npm ci
+npm run dev
+```
+
+启动命令会构建用户站、管理后台与文档，对本地 D1 应用 SQL，再启动 Wrangler。浏览器打开终端显示的地址。
+
+## 2. 创建本地管理员
+
+保持本地服务运行，在另一个终端用管理员 CLI 创建账号。
+
+在 PowerShell 7 中输入：
+
+```powershell
+Read-Host -MaskInput '管理员密码' | node cli/admin.ts --local create site-admin
+```
+
+在 Bash 中输入：
+
+```bash
+read -rs -p "管理员密码：" password
+printf '%s\n' "$password" | node cli/admin.ts --local create site-admin
+unset password
+```
+
+访问 `/admin/` 登录。前台位于 `/`，文档位于 `/docs/`。
+
+## 3. 发布站点
+
+点击 README 中的 **Deploy to Cloudflare**，在部署表单的 `JOIASK_INITIAL_ADMIN_USERNAME` 和 `JOIASK_INITIAL_ADMIN_PASSWORD` 中填写自选管理员用户名和密码。部署成功后，用这组凭据登录站点的 `/admin/` 即可创建首个超级管理员。使用 CLI 部署时，可随首次发布上传这两项，也可在 Worker 控制台补填。[首次部署示例](./deployment.mdx#首次部署与管理员)

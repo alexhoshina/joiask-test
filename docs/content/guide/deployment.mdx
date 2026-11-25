@@ -1,0 +1,56 @@
+---
+title: "部署与更新"
+---
+
+一个 Worker 提供提问箱、管理后台和文档。每个站点使用自己的 `wrangler.jsonc`，其中 `name` 选择 Worker，`DB`、`FILES` 和 `MODERATION` 分别绑定站点的 D1、R2 和审核队列。
+
+## 首次部署与管理员
+
+### 使用部署按钮
+
+从 README 点击 **Deploy to Cloudflare**，选择账号和站点资源，启用 R2。将 **Build command** 留空，**Deploy command** 设为 `npm run release`。它会先构建，再对绑定的 D1 执行 SQL，成功后才发布代码。模板创建的仓库副本包含本站的资源配置。[Cloudflare 部署按钮](https://developers.cloudflare.com/workers/platform/deploy-buttons/)
+
+在部署表单中，为 `SESSION_SECRET` 和 `SETTINGS_KEY` 各填写一个独立的随机值，每个至少 32 字节。请在后续部署中继续使用这两个密钥。
+
+在同一表单的 `JOIASK_INITIAL_ADMIN_USERNAME` 和 `JOIASK_INITIAL_ADMIN_PASSWORD` 中填写自选管理员用户名和密码。部署完成后，打开站点的 `/admin/`，用这组凭据首次登录，系统即会创建超级管理员账号。登录成功后，可在 Worker 的 **Settings → Variables and Secrets** 中移除这两项管理员凭据并点击 **Deploy**。
+
+### 使用命令行
+
+安装 Node.js 24，启用目标账号的 R2，在仓库根目录运行以下命令。示例使用配置中的默认资源名。
+
+```sh
+npm ci
+npx wrangler login
+npx wrangler d1 create joiask-db --binding DB --update-config
+npx wrangler r2 bucket create joiask-files --update-config=false
+npx wrangler queues create joiask-moderation
+```
+
+Wrangler 会把数据库 ID 写入 `wrangler.jsonc` 的 `DB` 绑定。使用自选名称时，先在同一文件设置 Worker 的 `name`、D1 的 `database_name` 和 R2 的 `bucket_name`，并在创建命令中使用对应的资源名。审核队列的生产者与消费者要填写相同的队列名。多个站点各自使用独立资源。
+
+准备私有文件 `.dev.vars.production`，分别以 `SESSION_SECRET=值` 和 `SETTINGS_KEY=值` 填写两个长期密钥。要在首次发布时一并设置管理员，可在同一文件中填写 `JOIASK_INITIAL_ADMIN_USERNAME` 和 `JOIASK_INITIAL_ADMIN_PASSWORD`。首次发布执行：
+
+```sh
+npm run release -- --secrets-file .dev.vars.production
+```
+
+若这两个 Secret 已经在目标 Worker 配置好，可以直接运行 `npm run release`。在 CI 中，为 Wrangler 提供能访问目标账号及资源的 Cloudflare API token。
+
+### 在控制台设置首个管理员
+
+1. 如果新站发布时尚未设置管理员凭据，打开目标 Worker 的 **Settings → Variables and Secrets**。
+2. 添加 `JOIASK_INITIAL_ADMIN_USERNAME`（Text 或 Secret）和 `JOIASK_INITIAL_ADMIN_PASSWORD`（Secret），点击 **Deploy**。
+3. 访问 `/admin/`，用上述凭据首次登录。创建成功后可移除这两项，再点击 **Deploy**。已有账号可通过[管理员 CLI](./administrators.mdx)恢复。
+
+## 更新和预检
+
+在站点自己的仓库中运行 `npm ci` 和 `npm run release`。单独检查构建与上传包时，在本地运行：
+
+```sh
+npm run build
+npm run check:deploy
+```
+
+`build` 产生 Worker 和静态资源，`deploy` 将已构建的产物交给 Wrangler。两个预检步骤都只操作本地文件。自定义域名可在目标 Worker 的设置中绑定。构建前设置 `SITE_ORIGIN`（例如 `https://ask.example.com`），文档站点地图将使用对应域名。
+
+发布后可访问 `/`、`/admin/` 和 `/docs/`，并用两个浏览器检查投稿与实时互动。SMTP 送达和 B 站签名读取需在实际部署环境验证。

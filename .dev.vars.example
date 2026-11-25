@@ -1,0 +1,7 @@
+# Generate two separate random 32-byte values. Set them as Worker secrets for deployment.
+SESSION_SECRET=
+SETTINGS_KEY=
+
+# Choose credentials for the first administrator when using Deploy to Cloudflare.
+JOIASK_INITIAL_ADMIN_USERNAME=
+JOIASK_INITIAL_ADMIN_PASSWORD=

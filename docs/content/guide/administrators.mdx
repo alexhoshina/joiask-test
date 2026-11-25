@@ -1,0 +1,17 @@
+---
+title: "管理员与密码恢复"
+---
+
+新站使用 Cloudflare 部署按钮时，在 `JOIASK_INITIAL_ADMIN_USERNAME` 和 `JOIASK_INITIAL_ADMIN_PASSWORD` 中填写自选管理员用户名和密码。发布后，首次用这组凭据登录 `/admin/` 时，系统会创建超级管理员账号。如果部署时尚未设置这两项，可以在 Worker 的 **Settings → Variables and Secrets** 中补填并点击 **Deploy**。首次登录成功后可移除这两项。[首次部署说明](./deployment.mdx#首次部署与管理员)
+
+管理员 CLI 通过仓库根目录 `wrangler.jsonc` 的 `DB` 绑定访问数据库。使用站点自己的仓库，在本地开发时选 `--local`，在远端管理时选 `--remote`。
+
+以下命令分别用于新建超级管理员、重置管理员密码和提升已有管理员的权限。PowerShell 7 会隐藏输入的密码。重置密码会撤销该账号的现有会话。
+
+```powershell
+Read-Host -MaskInput '初始密码' | node cli/admin.ts --remote create site-admin
+Read-Host -MaskInput '新密码' | node cli/admin.ts --remote reset-password site-admin
+node cli/admin.ts --remote promote site-admin
+```
+
+Bash 的掩码输入示例见[快速开始](./quick-start.mdx)。全部管理员账号都被删除时，可通过 CLI 重新创建超级管理员。普通会员可使用已绑定的邮箱找回密码。[投稿与邮箱](./usage.mdx)

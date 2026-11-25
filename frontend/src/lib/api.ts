@@ -1,0 +1,258 @@
+const API_BASE = '/api';
+
+export interface Tag {
+  id: number;
+  tag_name: string;
+  description: string;
+  question_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmojiData {
+  value: string;
+  count: number;
+}
+
+export interface InputEmoji {
+  id: number;
+  tag: string;
+  url: string;
+}
+
+export interface Question {
+  id: number;
+  tag_id: number;
+  tag: Tag;
+  content: string;
+  images: string;
+  images_num: number;
+  is_hide: boolean;
+  is_rainbow: boolean;
+  is_archive: boolean;
+  is_publish: boolean;
+  is_spam: boolean;
+  is_real_name: boolean;
+  bilibili_uid?: string;
+  bilibili_name?: string;
+  bilibili_avatar?: string;
+  emojis: string;
+  likes: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Config {
+  site_name: string;
+  site_description: string;
+  logo_url: string;
+  favicon_url: string;
+  custom_css: string;
+  announcement: string;
+  require_verified_user_to_post: boolean;
+  email_enabled: boolean;
+}
+
+export interface AccountUser {
+  email: string | null;
+  username: string;
+  bilibili_uid: string;
+  bilibili_name: string;
+  bilibili_avatar: string;
+  verified_at: string;
+  is_disabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VerificationStatus {
+  status: 'pending' | 'verified' | 'expired' | 'consumed';
+  challenge_code?: string;
+  bilibili_uid: string;
+  bilibili_name?: string;
+  bilibili_avatar?: string;
+  requested_at: string;
+  expires_at: string;
+  confirmation_until?: string;
+}
+
+export interface ApiResponse<T> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+export interface QuestionsResponse {
+  questions: Question[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export async function getInfo(): Promise<ApiResponse<{ id: number; username: string }>> {
+  const res = await fetch(`${API_BASE}/info`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+  return res.json();
+}
+
+export async function getConfig(): Promise<ApiResponse<Config>> {
+  const res = await fetch(`${API_BASE}/config`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+  return res.json();
+}
+
+export async function getInputEmojis(): Promise<ApiResponse<InputEmoji[]>> {
+  const res = await fetch(`${API_BASE}/emoji`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+  return res.json();
+}
+
+export async function getAccountInfo(): Promise<ApiResponse<AccountUser>> {
+  const res = await fetch(`${API_BASE}/account/info`, { credentials: 'include' });
+  return res.json();
+}
+
+export async function loginAccount(username: string, password: string): Promise<ApiResponse<AccountUser>> {
+  const res = await fetch(`${API_BASE}/account/login`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  return res.json();
+}
+
+export async function logoutAccount(): Promise<ApiResponse<null>> {
+  const res = await fetch(`${API_BASE}/account/logout`, { method: 'POST', credentials: 'include' });
+  return res.json();
+}
+
+export async function startAccountVerification(bilibiliUid: string): Promise<ApiResponse<VerificationStatus>> {
+  const res = await fetch(`${API_BASE}/account/verification`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bilibili_uid: bilibiliUid }),
+  });
+  return res.json();
+}
+
+export async function getAccountVerification(signal?: AbortSignal): Promise<ApiResponse<VerificationStatus>> {
+  const res = await fetch(`${API_BASE}/account/verification`, { credentials: 'include', cache: 'no-store', signal });
+  return res.json();
+}
+
+export async function cancelAccountVerification(bilibiliUid: string): Promise<ApiResponse<null>> {
+  const params = new URLSearchParams({ bilibili_uid: bilibiliUid });
+  const res = await fetch(`${API_BASE}/account/verification?${params}`, { method: 'DELETE', credentials: 'include' });
+  return res.json();
+}
+
+export async function checkAccountVerification(): Promise<ApiResponse<VerificationStatus>> {
+  const res = await fetch(`${API_BASE}/account/verification/check`, { method: 'POST', credentials: 'include' });
+  return res.json();
+}
+
+export async function registerAccount(username: string, password: string, bilibiliUid?: string): Promise<ApiResponse<AccountUser>> {
+  const res = await fetch(`${API_BASE}/account/register`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, bilibili_uid: bilibiliUid }),
+  });
+  return res.json();
+}
+
+export async function getQuestions(params: {
+  page?: number;
+  size?: number;
+  order_by?: string;
+  order?: string;
+  tag_id?: number;
+  publish?: boolean;
+  rainbow?: boolean;
+  archive?: boolean;
+  search?: string;
+}): Promise<ApiResponse<QuestionsResponse>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set('page', params.page.toString());
+  if (params.size) searchParams.set('size', params.size.toString());
+  if (params.order_by) searchParams.set('order_by', params.order_by);
+  if (params.order) searchParams.set('order', params.order);
+  if (params.tag_id) searchParams.set('tag_id', params.tag_id.toString());
+  if (params.publish !== undefined) searchParams.set('publish', params.publish.toString());
+  if (params.rainbow !== undefined) searchParams.set('rainbow', params.rainbow.toString());
+  if (params.archive !== undefined) searchParams.set('archive', params.archive.toString());
+  if (params.search) searchParams.set('search', params.search);
+
+  const res = await fetch(`${API_BASE}/question?${searchParams.toString()}`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+  return res.json();
+}
+
+export async function createQuestion(data: FormData): Promise<Response> {
+  return fetch(`${API_BASE}/question`, {
+    method: 'POST',
+    credentials: 'include',
+    body: data,
+  });
+}
+
+export async function updateQuestion(id: number, data: {
+  tag_id?: number;
+  is_hide?: boolean;
+  is_rainbow?: boolean;
+  is_archive?: boolean;
+  is_publish?: boolean;
+}): Promise<ApiResponse<null>> {
+  const res = await fetch(`${API_BASE}/question/${id}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function addEmoji(questionId: number, emoji: string): Promise<ApiResponse<null>> {
+  const formData = new FormData();
+  formData.append('emoji', emoji);
+  const res = await fetch(`${API_BASE}/question/${questionId}/emoji`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+  return res.json();
+}
+
+export async function getTags(): Promise<ApiResponse<Tag[]>> {
+  const res = await fetch(`${API_BASE}/tag`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+  return res.json();
+}
+
+async function postAccountEmail<T>(path: string, data: Record<string, string>): Promise<ApiResponse<T>> {
+  const res = await fetch(`${API_BASE}/account/${path}`, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+export const requestEmailBinding = (email: string, password: string) =>
+  postAccountEmail<{ message: string }>('email', { email, password });
+export const confirmEmailBinding = (token: string) =>
+  postAccountEmail<AccountUser>('email/confirm', { token });
+export const requestPasswordReset = (email: string) =>
+  postAccountEmail<{ message: string }>('password-reset', { email });
+export const resetAccountPassword = (token: string, password: string) =>
+  postAccountEmail<{ message: string }>('password-reset/confirm', { token, password });

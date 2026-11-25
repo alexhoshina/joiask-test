@@ -1,0 +1,35 @@
+---
+title: JoiAsk 文档
+description: 可自行部署的开源提问箱。收集观众提问，审核内容，留存值得回看的对话。
+---
+
+JoiAsk 支持话题分类、图文投稿、内容审核与卡片归档。应用部署在 Cloudflare Workers，站点、管理后台和本文档共用同一域名。
+
+<Callout type="warn" title="新安装没有默认管理员或默认密码">
+  在 Cloudflare 部署表单中填写首个管理员的用户名和密码，发布后用这组凭据登录 `/admin/` 即可创建账号。也可用管理员 CLI 创建账号。[快速开始](./guide/quick-start.mdx)
+</Callout>
+
+![JoiAsk 提问箱首页：投稿入口、话题筛选与提问卡片](/screenshot.png)
+
+## 开始使用
+
+<Cards>
+  <Card title="快速开始" href="/guide/quick-start" description="安装依赖、启动 Worker 并创建第一个管理员。" />
+  <Card title="投稿与邮箱" href="/guide/usage" description="投稿格式标签、SMTP 与用户密码找回。" />
+  <Card title="自定义外观与 CSS" href="/guide/custom-css" description="调整前台主题变量与颜色预设。" />
+</Cards>
+
+## 部署与维护
+
+<Cards>
+  <Card title="数据库、存储与安全配置" href="/guide/configuration" description="D1、R2、实时服务与密钥。" />
+  <Card title="管理员与密码恢复" href="/guide/administrators" description="账号角色、会话撤销与离线恢复。" />
+  <Card title="部署与更新" href="/guide/deployment" description="Workers 构建、D1 迁移与发布。" />
+  <Card title="故障排查" href="/guide/troubleshooting" description="Worker、上传、登录与邮件问题。" />
+</Cards>
+
+## 相关链接
+
+- [在线示例](https://ask.vjoi.cn/)
+- [GitHub 仓库](https://github.com/powerlive-io/JoiAsk)
+- [PowerLive](https://powerlive.io/)
